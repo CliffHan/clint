@@ -145,6 +145,7 @@ fn interact_sync(emitter: Emitter, interval: Duration, config: Config) -> Result
             match event {
                 Event::Key(keyevent) => {
                     if exit_on_key(&config, &keyevent) {
+                        println!("\r");
                         break;
                     }
                     if output_on_key(&config, &keyevent, &mut cmd, &emitter.notifier) {
