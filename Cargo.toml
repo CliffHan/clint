@@ -1,0 +1,11 @@
+[package]
+name = "clint"
+version = "0.1.0"
+authors = ["Cliff Han <cliff.hp@gmail.com>"]
+edition = "2018"
+description = "A library for building interactive CLI easily"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crossterm = { version = "0.19" }
