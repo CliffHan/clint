@@ -12,7 +12,7 @@ use crossterm::{Result as CrossTermResult};
 use std::io::stdout;
 #[cfg(any(feature = "sync", feature = "async-tokio"))]
 use std::io::Write;
-#[cfg(any(feature = "sync", feature = "async-tokio"))]
+#[cfg(feature = "sync")]
 use std::time::Duration;
 #[cfg(feature = "sync")]
 use std::sync::mpsc::Receiver as SyncReceiver;
@@ -22,8 +22,6 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc::UnboundedReceiver as TokioReceiver;
 #[cfg(feature = "async-tokio")]
 use futures::StreamExt;
-#[cfg(feature = "async-tokio")]
-use futures_timer::Delay;
 #[cfg(feature = "async-tokio")]
 use crossterm::event::{Event, EventStream};
 
@@ -245,16 +243,13 @@ where
     let mut cmd = String::new();
 
     loop {
-        let delay = Delay::new(Duration::from_millis(1_000));
         let event = reader.next();
         let ext_event = receiver.recv();
 
         tokio::select! {
-            _ = delay => {},
             maybe_event = event => {
                 match maybe_event {
                     Some(Ok(event)) => {
-                        // println!("Event::{:?}\r", event);
                         if let Event::Key(keyevent) = event {
                             if exit_on_key(&config, &keyevent) {
                                 println!("\r");
