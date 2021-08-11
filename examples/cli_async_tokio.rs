@@ -1,7 +1,8 @@
 use clint::*;
+use log::debug;
+use std::thread::Builder;
 use tokio;
 use tokio::sync::mpsc::unbounded_channel;
-use std::thread::Builder;
 
 const HELP: &str = "Async Interactive client built on tokio example";
 
@@ -21,7 +22,6 @@ fn print_help(config: &Config) {
 
 fn main() {
     // Initiate
-    // let interval = Duration::from_millis(100);
     let mut config = Config::default();
     let (tx, rx) = unbounded_channel();
 
@@ -31,17 +31,18 @@ fn main() {
 
     print_help(&config);
 
+    ClintLogger::init(tx);
+
     // Start a thread and keep printing something
-    Builder::new().name("handler".into())
+    Builder::new()
+        .name("handler".into())
         .spawn(move || {
             let mut count = 0;
             loop {
                 let one_second = std::time::Duration::from_secs(1);
                 std::thread::sleep(one_second);
                 count += 1;
-                // tokio::spawn(async move || {
-                    tx.send(format!("Started {} seconds", count)).unwrap();
-                // })
+                debug!("Started {} seconds", count);
             }
         })
         .unwrap();
@@ -49,7 +50,8 @@ fn main() {
     // Start loop
     let result = loop_async_tokio_blocking(config, rx, |cmd| {
         // "println_clint" is used to print better
-        println_clint(format!("Dispatcher received cmd={}", cmd));
+        // println_clint(format!("Dispatcher received cmd={}", cmd));
+        debug!("Dispatcher received cmd={}", cmd);
     });
     if let Err(e) = result {
         println!("Error: {:?}\r", e);

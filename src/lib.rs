@@ -1,29 +1,29 @@
 use crossterm::cursor::MoveToColumn;
 #[cfg(feature = "sync")]
 use crossterm::event::{poll, read, Event};
+#[cfg(feature = "async-tokio")]
+use crossterm::event::{Event, EventStream};
 #[cfg(any(feature = "sync", feature = "async-tokio"))]
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::execute;
 #[cfg(any(feature = "sync", feature = "async-tokio"))]
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::terminal::{Clear, ClearType};
-use crossterm::{execute};
 #[cfg(any(feature = "sync", feature = "async-tokio"))]
-use crossterm::{Result as CrossTermResult};
+use crossterm::Result as CrossTermResult;
+#[cfg(feature = "sync")]
+use flume::{Receiver, Sender};
+#[cfg(feature = "async-tokio")]
+use futures::StreamExt;
 use std::io::stdout;
 #[cfg(any(feature = "sync", feature = "async-tokio"))]
 use std::io::Write;
 #[cfg(feature = "sync")]
 use std::time::Duration;
-#[cfg(feature = "sync")]
-use std::sync::mpsc::Receiver as SyncReceiver;
 #[cfg(feature = "async-tokio")]
 use tokio::runtime::Runtime;
 #[cfg(feature = "async-tokio")]
-use tokio::sync::mpsc::UnboundedReceiver as TokioReceiver;
-#[cfg(feature = "async-tokio")]
-use futures::StreamExt;
-#[cfg(feature = "async-tokio")]
-use crossterm::event::{Event, EventStream};
+use tokio::sync::mpsc::{UnboundedReceiver as Receiver, UnboundedSender as Sender};
 
 pub type CmdFunc = fn(String);
 
@@ -149,7 +149,7 @@ pub fn println_clint(info: String) {
 pub fn loop_sync<F>(
     config: Config,
     interval: Duration,
-    receiver: SyncReceiver<String>,
+    receiver: Receiver<String>,
     callback: F,
 ) -> CrossTermResult<()>
 where
@@ -170,7 +170,7 @@ where
 fn loop_sync_internal<F>(
     config: Config,
     interval: Duration,
-    receiver: SyncReceiver<String>,
+    receiver: Receiver<String>,
     callback: F,
 ) -> CrossTermResult<()>
 where
@@ -206,7 +206,7 @@ where
 #[cfg(feature = "async-tokio")]
 pub fn loop_async_tokio_blocking<F>(
     config: Config,
-    receiver: TokioReceiver<String>,
+    receiver: Receiver<String>,
     callback: F,
 ) -> CrossTermResult<()>
 where
@@ -215,12 +215,11 @@ where
     enable_raw_mode()?;
 
     // Create the runtime
-    let rt  = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
 
     // Execute the future, blocking the current thread until completion
-    let result = rt.block_on(async move {
-        loop_async_tokio_internal(config, receiver, callback).await
-    });
+    let result =
+        rt.block_on(async move { loop_async_tokio_internal(config, receiver, callback).await });
 
     if result.is_err() {
         let _ = disable_raw_mode();
@@ -233,7 +232,7 @@ where
 #[cfg(feature = "async-tokio")]
 async fn loop_async_tokio_internal<F>(
     config: Config,
-    mut receiver: TokioReceiver<String>,
+    mut receiver: Receiver<String>,
     callback: F,
 ) -> CrossTermResult<()>
 where
@@ -271,4 +270,45 @@ where
             }
         };
     }
+}
+
+pub struct ClintLogger {
+    #[cfg(any(feature = "sync", feature = "async-tokio"))]
+    sender: Sender<String>,
+}
+
+impl ClintLogger {
+    #[cfg(any(feature = "sync", feature = "async-tokio"))]
+    pub fn init(sender: Sender<String>) {
+        ClintLogger::init_logger(ClintLogger { sender });
+    }
+
+    #[cfg(any(feature = "sync", feature = "async-tokio"))]
+    fn init_logger(logger: ClintLogger) {
+        log::set_max_level(log::LevelFilter::Info);
+        let _ = log::set_boxed_logger(Box::new(logger));
+    }
+}
+
+impl log::Log for ClintLogger {
+    fn enabled(&self, _metadata: &log::Metadata) -> bool {
+        true
+    }
+
+    fn log(&self, record: &log::Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+
+        #[cfg(any(feature = "sync", feature = "async-tokio"))]
+        self.sender
+            .send(format!(
+                "[{}]:[{}] -- {}",
+                record.level(),
+                record.target(),
+                record.args()
+            ))
+            .unwrap();
+    }
+    fn flush(&self) {}
 }

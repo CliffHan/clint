@@ -1,7 +1,7 @@
 use clint::*;
-use std::sync::mpsc::channel;
-use std::time::Duration;
+use log::debug;
 use std::thread::Builder;
+use std::time::Duration;
 
 const HELP: &str = "Sync Interactive client example";
 
@@ -24,22 +24,25 @@ fn main() {
     let interval = Duration::from_millis(100);
     let mut config = Config::default();
     // let mut dispatcher = Dispatcher::default();
-    let (tx, rx) = channel();
+    let (tx, rx) = flume::unbounded();
     // Reset some prompt in config
     config.input_prompt = Some("User>".into());
     config.output_prompt = Some("Computer>".into());
 
     print_help(&config);
+    ClintLogger::init(tx);
 
     // Start a thread and keep printing something
-    Builder::new().name("handler".into())
+    Builder::new()
+        .name("handler".into())
         .spawn(move || {
             let mut count = 0;
             loop {
                 let one_second = std::time::Duration::from_secs(1);
                 std::thread::sleep(one_second);
                 count += 1;
-                tx.send(format!("Started {} seconds", count)).unwrap();
+                // tx.send(format!("Started {} seconds", count)).unwrap();
+                debug!("Started {} seconds", count)
             }
         })
         .unwrap();
@@ -47,7 +50,8 @@ fn main() {
     // Start loop
     let result = loop_sync(config, interval, rx, |cmd| {
         // "println_clint" is used to print better
-        println_clint(format!("Dispatcher received cmd={}", cmd));
+        // println_clint(format!("Dispatcher received cmd={}", cmd));
+        debug!("Dispatcher received cmd={}", cmd)
     });
     if let Err(e) = result {
         println!("Error: {:?}\r", e);

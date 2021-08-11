@@ -7,13 +7,15 @@ description = "A library for building interactive CLI easily"
 
 [features]
 default = [] # User must choose at least one feature
-sync = []
+sync = ["flume"]
 async = []
 async-tokio = ["async", "tokio", "crossterm/event-stream", "futures-core", "futures", "futures-timer"]
 
 [dependencies]
 crossterm = { version = "0.19" }
-tokio = { version = "1.7", features = ["full"], optional = true }
+log = { version = "0.4", features = ["std"] }
+flume = { version = "0.10", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
 futures-core = { version = "0.3", optional = true, default-features = false }
 futures = { version = "0.3", optional = true }
 futures-timer = { version = "3.0", optional = true }
